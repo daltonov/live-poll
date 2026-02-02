@@ -3,7 +3,7 @@ import { kv } from '@vercel/kv';
 
 export const config = {
   api: {
-    bodyParser: false, // ⛔️ ВАЖНО
+    bodyParser: false,
   },
 };
 
@@ -15,50 +15,61 @@ const QUESTION_MAP = {
   107716069: 'q5',
 };
 
-// читаем raw body из stream
-async function getRawBody(req) {
+function readRawBody(req) {
   return new Promise((resolve, reject) => {
     let data = '';
-    req.on('data', chunk => {
-      data += chunk;
-    });
+    req.on('data', chunk => (data += chunk));
     req.on('end', () => resolve(data));
     req.on('error', reject);
   });
+}
+
+function safeParse(raw) {
+  let s = raw.trim();
+
+  // Убираем обёртку (" ... ")
+  if (s.startsWith('("') && s.endsWith('")')) {
+    s = s.slice(2, -2);
+  }
+
+  // Первый parse
+  let parsed = JSON.parse(s);
+
+  // Если это всё ещё строка — парсим второй раз
+  if (typeof parsed === 'string') {
+    parsed = JSON.parse(parsed);
+  }
+
+  return parsed;
 }
 
 export default async function handler(req, res) {
   try {
     console.log('===== NEW YANDEX FORM EVENT =====');
 
-    const raw = await getRawBody(req);
+    const raw = await readRawBody(req);
     console.log('RAW STRING:', raw);
 
     if (!raw) {
-      return res.status(400).json({ error: 'empty raw body' });
+      return res.status(400).json({ error: 'empty body' });
     }
 
-    // Яндекс присылает JSON, но как строку
-    const data = JSON.parse(raw);
+    const data = safeParse(raw);
 
     const answer = data?.answer;
     if (!answer?.data) {
       return res.status(400).json({ error: 'no answer.data' });
     }
 
-    // берём первый ответ
     const dataKey = Object.keys(answer.data)[0];
     const value = answer.data[dataKey]?.value?.[0];
 
     if (!value) {
-      return res.status(400).json({ error: 'no answer value' });
+      return res.status(400).json({ error: 'no value' });
     }
 
-    const answerKey = value.key;          // ID варианта
-    const questionId = value.question.id; // ID вопроса
-
-    console.log('QUESTION ID:', questionId);
-    console.log('ANSWER KEY:', answerKey);
+    const answerKey = value.key;
+    const questionId = value.question.id;
 
     const q = QUESTION_MAP[questionId];
     if (!q) {
@@ -66,7 +77,6 @@ export default async function handler(req, res) {
     }
 
     const redisKey = `stats:${q}`;
-
     await kv.hincrby(redisKey, answerKey, 1);
 
     console.log(`COUNTED → ${redisKey} [${answerKey}]`);
