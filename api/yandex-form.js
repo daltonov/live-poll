@@ -1,51 +1,41 @@
-import { kv } from "@vercel/kv";
-
 export default async function handler(req, res) {
   try {
-    const body = typeof req.body === "string"
-      ? JSON.parse(req.body)
-      : req.body;
+    const body = req.body;
+
+    console.log("===== NEW YANDEX FORM EVENT =====");
+    console.log("RAW BODY:", JSON.stringify(body, null, 2));
 
     const data = body?.answer?.data;
-    if (!data) {
-      return res.status(400).json({ error: "No answer data" });
+
+    if (!data || typeof data !== "object") {
+      console.log("NO answer.data");
+      return res.status(200).json({ ok: true });
     }
 
-    // 1. Получаем ID вопроса
-    const questionKey = Object.keys(data)[0]; 
-    // example: answer_choices_9008969287495760
+    for (const key of Object.keys(data)) {
+      const block = data[key];
 
-    const QUESTION_MAP = {
-      "answer_choices_9008969287495760": 1,
-      "answer_choices_9008969287733368": 2,
-      "answer_choices_9008969287833068": 3,
-      "answer_choices_9008969313885372": 4,
-      "answer_choices_9008969313915496": 5
-    };
+      console.log("ANSWER BLOCK KEY:", key);
 
-    const questionNumber = QUESTION_MAP[questionKey];
-    if (!questionNumber) {
-      return res.status(400).json({ error: "Unknown question" });
+      if (block?.question) {
+        console.log("QUESTION ID:", block.question.id);
+        console.log("QUESTION SLUG:", block.question.slug);
+      }
+
+      if (block?.value?.length) {
+        console.log(
+          "ANSWER VALUE KEYS:",
+          block.value.map(v => v.key)
+        );
+      }
     }
 
-    // 2. Получаем ID варианта ответа
-    const answerKey = data[questionKey]?.value?.[0]?.key;
-    if (!answerKey) {
-      return res.status(400).json({ error: "No answer key" });
-    }
+    console.log("===== END EVENT =====");
 
-    // 3. Увеличиваем счётчик
-    const redisKey = `votes:q${questionNumber}`;
-    await kv.hincrby(redisKey, answerKey, 1);
-
-    return res.status(200).json({
-      ok: true,
-      question: questionNumber,
-      answer: answerKey
-    });
+    return res.status(200).json({ ok: true });
 
   } catch (e) {
-    console.error("YANDEX FORM ERROR", e);
-    return res.status(500).json({ error: e.message });
+    console.error("YANDEX FORM PARSER ERROR", e);
+    return res.status(200).json({ ok: true });
   }
 }
