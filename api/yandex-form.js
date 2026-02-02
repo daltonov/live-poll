@@ -1,6 +1,6 @@
-import { kv } from "@vercel/kv";
+const { kv } = require("@vercel/kv");
 
-export const config = {
+exports.config = {
   api: {
     bodyParser: false,
   },
@@ -23,7 +23,7 @@ function readBody(req) {
   });
 }
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   try {
     const raw = (await readBody(req)) || "";
 
@@ -32,7 +32,7 @@ export default async function handler(req, res) {
 
     let jsonText = raw;
 
-    // 🔑 ГЛАВНОЕ ИСПРАВЛЕНИЕ
+    // 🔑 убираем экранирование
     if (jsonText.trim().startsWith("\\{")) {
       console.log("Detected escaped JSON, unescaping...");
       jsonText = jsonText.replace(/\\"/g, '"');
@@ -42,12 +42,10 @@ export default async function handler(req, res) {
     try {
       body = JSON.parse(jsonText);
     } catch (e) {
-      console.error("FINAL JSON.parse FAILED");
-      console.error("TEXT USED FOR PARSE:", jsonText.slice(0, 500));
+      console.error("JSON.parse FAILED");
+      console.error(jsonText.slice(0, 500));
       return res.status(200).json({ ok: false });
     }
-
-    console.log("PARSED OK");
 
     const answerData = body?.answer?.data;
     if (!answerData) {
@@ -60,4 +58,29 @@ export default async function handler(req, res) {
       const values = block?.value;
 
       if (!questionId || !QUESTION_MAP[questionId]) {
-        console.log("Unknown or missing question.id:",
+        console.log("Unknown question:", questionId);
+        continue;
+      }
+
+      const qKey = QUESTION_MAP[questionId];
+
+      if (!Array.isArray(values)) continue;
+
+      for (const v of values) {
+        const answerKey = v?.key;
+        if (!answerKey) continue;
+
+        const redisKey = `${qKey}:${answerKey}`;
+        await kv.incr(redisKey);
+
+        console.log("COUNTED:", redisKey);
+      }
+    }
+
+    console.log("===== END EVENT =====");
+    return res.status(200).json({ ok: true });
+  } catch (err) {
+    console.error("HANDLER ERROR:", err);
+    return res.status(200).json({ ok: true });
+  }
+};
