@@ -1,13 +1,40 @@
+export const config = {
+  api: {
+    bodyParser: false, // 🔴 КЛЮЧЕВО
+  },
+};
+
+async function readBody(req) {
+  return new Promise((resolve, reject) => {
+    let data = "";
+    req.on("data", chunk => {
+      data += chunk;
+    });
+    req.on("end", () => resolve(data));
+    req.on("error", reject);
+  });
+}
+
 export default async function handler(req, res) {
   try {
-    const body = req.body;
+    const raw = await readBody(req);
 
     console.log("===== NEW YANDEX FORM EVENT =====");
-    console.log("RAW BODY:", JSON.stringify(body, null, 2));
+    console.log("RAW STRING:", raw);
+
+    let body;
+    try {
+      body = JSON.parse(raw);
+    } catch (e) {
+      console.log("JSON PARSE FAILED");
+      return res.status(200).json({ ok: true });
+    }
+
+    console.log("PARSED BODY:", JSON.stringify(body, null, 2));
 
     const data = body?.answer?.data;
 
-    if (!data || typeof data !== "object") {
+    if (!data) {
       console.log("NO answer.data");
       return res.status(200).json({ ok: true });
     }
@@ -35,7 +62,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true });
 
   } catch (e) {
-    console.error("YANDEX FORM PARSER ERROR", e);
+    console.error("YANDEX FORM ERROR", e);
     return res.status(200).json({ ok: true });
   }
 }
