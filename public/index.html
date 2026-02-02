@@ -25,6 +25,7 @@
 
     .legend {
       font-size: 18px;
+      min-width: 220px;
     }
 
     .legend-item {
@@ -39,13 +40,18 @@
       margin-right: 10px;
       border-radius: 4px;
     }
+
+    .placeholder {
+      text-align: center;
+      color: #999;
+      font-size: 20px;
+    }
   </style>
 </head>
 <body>
 
 <div class="container">
-  <canvas id="chart" width="400" height="400"></canvas>
-
+  <canvas id="chart" width="360" height="360"></canvas>
   <div class="legend" id="legend"></div>
 </div>
 
@@ -54,23 +60,24 @@
     "#FF6384",
     "#36A2EB",
     "#FFCE56",
-    "#4BC0C0",
-    "#9966FF",
-    "#FF9F40"
+    "#4BC0C0"
   ];
 
   const chart = new Chart(document.getElementById("chart"), {
     type: "pie",
     data: {
-      labels: [],
+      labels: ["Ожидание голосов"],
       datasets: [{
-        data: [],
-        backgroundColor: colors
+        data: [1],
+        backgroundColor: ["#e0e0e0"]
       }]
     },
     options: {
+      plugins: {
+        legend: { display: false }
+      },
       animation: {
-        duration: 500
+        duration: 300
       }
     }
   });
@@ -79,23 +86,27 @@
     const res = await fetch("/api/stats");
     const data = await res.json();
 
+    if (!data.total || data.total === 0) {
+      document.getElementById("legend").innerHTML =
+        `<div class="placeholder">Ожидание голосов…</div>`;
+      return;
+    }
+
     chart.data.labels = data.labels;
     chart.data.datasets[0].data = data.values;
+    chart.data.datasets[0].backgroundColor = colors;
     chart.update();
 
-    // легенда с процентами
     const legend = document.getElementById("legend");
     legend.innerHTML = "";
 
     data.labels.forEach((label, i) => {
       const item = document.createElement("div");
       item.className = "legend-item";
-
       item.innerHTML = `
         <div class="color-box" style="background:${colors[i % colors.length]}"></div>
         <div>${label}: <b>${data.percents[i]}%</b></div>
       `;
-
       legend.appendChild(item);
     });
   }
