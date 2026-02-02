@@ -1,15 +1,23 @@
+import { kv } from "@vercel/kv";
+
 export const config = {
   api: {
-    bodyParser: false, // 🔴 КЛЮЧЕВО
+    bodyParser: false,
   },
 };
 
-async function readBody(req) {
+const QUESTION_MAP = {
+  107664842: "q1",
+  107665595: "q2",
+  107665966: "q3",
+  107716049: "q4",
+  107716069: "q5",
+};
+
+function readBody(req) {
   return new Promise((resolve, reject) => {
     let data = "";
-    req.on("data", chunk => {
-      data += chunk;
-    });
+    req.on("data", chunk => (data += chunk));
     req.on("end", () => resolve(data));
     req.on("error", reject);
   });
@@ -20,39 +28,48 @@ export default async function handler(req, res) {
     const raw = await readBody(req);
 
     console.log("===== NEW YANDEX FORM EVENT =====");
-    console.log("RAW STRING:", raw);
+    console.log("RAW:", raw);
 
     let body;
     try {
       body = JSON.parse(raw);
-    } catch (e) {
-      console.log("JSON PARSE FAILED");
+    } catch {
+      console.log("❌ JSON parse failed");
       return res.status(200).json({ ok: true });
     }
 
-    console.log("PARSED BODY:", JSON.stringify(body, null, 2));
+    const answerData = body?.answer?.data;
 
-    const data = body?.answer?.data;
-
-    if (!data) {
-      console.log("NO answer.data");
+    if (!answerData) {
+      console.log("❌ NO answer.data");
       return res.status(200).json({ ok: true });
     }
 
-    for (const key of Object.keys(data)) {
-      const block = data[key];
+    for (const block of Object.values(answerData)) {
+      const questionId = block?.question?.id;
 
-      console.log("ANSWER BLOCK KEY:", key);
+      if (!questionId) continue;
 
-      if (block?.question) {
-        console.log("QUESTION ID:", block.question.id);
-        console.log("QUESTION SLUG:", block.question.slug);
+      const questionKey = QUESTION_MAP[questionId];
+
+      if (!questionKey) {
+        console.log("⚠️ UNKNOWN QUESTION ID:", questionId);
+        continue;
       }
 
-      if (block?.value?.length) {
+      const values = block?.value || [];
+
+      for (const v of values) {
+        const answerKey = v.key;
+
+        if (!answerKey) continue;
+
+        const redisKey = `${questionKey}:${answerKey}`;
+
+        await kv.incr(redisKey);
+
         console.log(
-          "ANSWER VALUE KEYS:",
-          block.value.map(v => v.key)
+          `✅ COUNTED → ${redisKey}`
         );
       }
     }
@@ -62,7 +79,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true });
 
   } catch (e) {
-    console.error("YANDEX FORM ERROR", e);
+    console.error("🔥 YANDEX FORM ERROR", e);
     return res.status(200).json({ ok: true });
   }
 }
