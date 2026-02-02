@@ -1,27 +1,18 @@
-import { parse } from "querystring";
-import { kv } from "@vercel/kv";
+import { kv } from '@vercel/kv'
 
-export const config = {
-  api: { bodyParser: false },
-};
+export default async function handler(req, res) {
+  try {
+    const { answer } = req.body
+    if (!answer) return res.status(400).json({ ok: false })
 
-export default function handler(req, res) {
-  let rawBody = "";
+    const votes = (await kv.get('votes')) || {}
+    votes[answer] = (votes[answer] || 0) + 1
 
-  req.on("data", chunk => {
-    rawBody += chunk.toString();
-  });
+    await kv.set('votes', votes)
 
-  req.on("end", async () => {
-    const parsed = parse(rawBody);
-
-    // ID варианта — это ключ
-    const variantId = Object.keys(parsed)[0];
-
-    if (variantId) {
-      await kv.hincrby("votes", variantId, 1);
-    }
-
-    res.status(200).json({ ok: true });
-  });
+    res.status(200).json({ ok: true })
+  } catch (e) {
+    console.error(e)
+    res.status(500).json({ error: e.message })
+  }
 }
