@@ -101,7 +101,9 @@
     };
 
     const params = new URLSearchParams(window.location.search);
-    const question = params.get('question');
+    const q = params.get('q');
+    
+    fetch(`/api/stats?q=${q}`)
 
     if (!question) {
       window.location.href = 'index.html';
