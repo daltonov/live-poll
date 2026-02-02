@@ -2,23 +2,20 @@ import { kv } from "@vercel/kv";
 
 export default async function handler(req, res) {
   try {
-    const body = req.body;
+    const body = typeof req.body === "string"
+      ? JSON.parse(req.body)
+      : req.body;
 
-    if (!body?.answer?.data) {
-      return res.status(200).end();
+    const data = body?.answer?.data;
+    if (!data) {
+      return res.status(400).json({ error: "No answer data" });
     }
 
-    // 1️⃣ Берём ключ вида answer_choices_XXXX
-    const answerData = body.answer.data;
-    const answerChoiceKey = Object.keys(answerData)[0];
+    // 1. Получаем ID вопроса
+    const questionKey = Object.keys(data)[0]; 
+    // example: answer_choices_9008969287495760
 
-    if (!answerChoiceKey) {
-      console.warn("No answer_choices key");
-      return res.status(200).end();
-    }
-
-    // 2️⃣ Маппинг answer_choices → номер вопроса
-    const ANSWER_CHOICES_MAP = {
+    const QUESTION_MAP = {
       "answer_choices_9008969287495760": 1,
       "answer_choices_9008969287733368": 2,
       "answer_choices_9008969287833068": 3,
@@ -26,26 +23,29 @@ export default async function handler(req, res) {
       "answer_choices_9008969313915496": 5
     };
 
-    const questionNumber = ANSWER_CHOICES_MAP[answerChoiceKey];
-
+    const questionNumber = QUESTION_MAP[questionKey];
     if (!questionNumber) {
-      console.warn("Unknown answer choice:", answerChoiceKey);
-      return res.status(200).end();
+      return res.status(400).json({ error: "Unknown question" });
     }
 
-    // 3️⃣ Ключ Redis
+    // 2. Получаем ID варианта ответа
+    const answerKey = data[questionKey]?.value?.[0]?.key;
+    if (!answerKey) {
+      return res.status(400).json({ error: "No answer key" });
+    }
+
+    // 3. Увеличиваем счётчик
     const redisKey = `votes:q${questionNumber}`;
+    await kv.hincrby(redisKey, answerKey, 1);
 
-    // 4️⃣ Сами ответы
-    const values = answerData[answerChoiceKey]?.value || [];
+    return res.status(200).json({
+      ok: true,
+      question: questionNumber,
+      answer: answerKey
+    });
 
-    for (const v of values) {
-      await kv.hincrby(redisKey, v.key, 1);
-    }
-
-    res.status(200).end();
-  } catch (err) {
-    console.error("YANDEX FORM ERROR", err);
-    res.status(500).end();
+  } catch (e) {
+    console.error("YANDEX FORM ERROR", e);
+    return res.status(500).json({ error: e.message });
   }
 }
