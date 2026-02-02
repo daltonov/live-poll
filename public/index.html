@@ -6,10 +6,6 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <style>
-    #resetBtn:hover {
-      background: #e04445;
-    }
-
     body {
       margin: 0;
       font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
@@ -23,21 +19,29 @@
     .container {
       display: flex;
       align-items: center;
-      gap: 48px;
+      gap: 60px;
       max-width: 1200px;
       width: 100%;
       padding: 40px;
       box-sizing: border-box;
     }
+
     .chart-wrapper {
       display: flex;
       flex-direction: column;
       align-items: center;
+      width: 520px;
+      height: 520px;
     }
-    
+
+    canvas {
+      width: 100% !important;
+      height: 100% !important;
+    }
+
     #resetBtn {
       margin-top: 20px;
-      padding: 10px 16px;
+      padding: 10px 18px;
       font-size: 14px;
       background: #ff4d4f;
       color: white;
@@ -46,15 +50,8 @@
       cursor: pointer;
     }
 
-    /* ⬆️ УВЕЛИЧЕННЫЙ БЛОК ПОД ДИАГРАММУ */
-    .chart-wrapper {
-      width: 700px;
-      height: 700px;
-    }
-
-    canvas {
-      width: 100% !important;
-      height: 100% !important;
+    #resetBtn:hover {
+      background: #e04445;
     }
 
     .legend {
@@ -84,10 +81,13 @@
     <canvas id="chart"></canvas>
     <button id="resetBtn">Сбросить результаты</button>
   </div>
+
   <div id="legend" class="legend"></div>
 </div>
 
 <script>
+  const REFRESH_INTERVAL = 1_000;
+  
   // 🔹 МАППИНГ КОДОВ → ТЕКСТ ОТВЕТОВ
   const ANSWER_LABELS = {
     "1770032780082": "Тренер ИИ",
@@ -104,41 +104,63 @@
     "#9966FF"
   ]
 
-  async function loadStats() {
-    const res = await fetch("/api/stats")
-    const stats = await res.json()
-
-    const entries = Object.entries(stats)
-    const total = entries.reduce((sum, [, count]) => sum + count, 0)
-
-    const labels = entries.map(([key]) => ANSWER_LABELS[key] ?? key)
-    const values = entries.map(([, count]) => count)
-
-    new Chart(document.getElementById("chart"), {
-      type: "pie",
-      data: {
-        labels,
-        datasets: [{
-          data: values,
-          backgroundColor: COLORS
-        }]
+ const ctx = document.getElementById("chart")
+  const chart = new Chart(ctx, {
+    type: "pie",
+    data: {
+      labels: [],
+      datasets: [{
+        data: [],
+        backgroundColor: COLORS
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: {
+        duration: 500
       },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: {
-            display: false
-          }
+      plugins: {
+        legend: {
+          display: false
         }
       }
-    })
+    }
+  })
+
+  /* 📡 ЗАГРУЗКА ДАННЫХ */
+  async function fetchStats() {
+    const res = await fetch("/api/stats")
+    return await res.json()
+  }
+
+  /* 🔄 ОБНОВЛЕНИЕ ДИАГРАММЫ И ЛЕГЕНДЫ */
+  async function updateChart() {
+    const stats = await fetchStats()
+    const entries = Object.entries(stats)
+
+    if (entries.length === 0) {
+      chart.data.labels = []
+      chart.data.datasets[0].data = []
+      chart.update()
+      document.getElementById("legend").innerHTML = ""
+      return
+    }
+
+    const total = entries.reduce((sum, [, v]) => sum + v, 0)
+
+    const labels = entries.map(([key]) => ANSWER_LABELS[key] ?? key)
+    const values = entries.map(([, v]) => v)
+
+    chart.data.labels = labels
+    chart.data.datasets[0].data = values
+    chart.update()
 
     const legend = document.getElementById("legend")
     legend.innerHTML = ""
 
-    entries.forEach(([key, count], index) => {
-      const percent = ((count / total) * 100).toFixed(1)
+    entries.forEach(([key, value], index) => {
+      const percent = ((value / total) * 100).toFixed(1)
 
       legend.innerHTML += `
         <div class="legend-item">
@@ -149,16 +171,18 @@
     })
   }
 
-  loadStats()
+  /* 🔁 LIVE-ОБНОВЛЕНИЕ */
+  updateChart()
+  setInterval(updateChart, REFRESH_INTERVAL)
+
+  /* 🔴 СБРОС */
   document.getElementById("resetBtn").onclick = async () => {
-  const ok = confirm("Сбросить все результаты?")
-  if (!ok) return
+    const ok = confirm("Сбросить все результаты?")
+    if (!ok) return
 
-  await fetch("/api/reset", { method: "POST" })
-
-  location.reload()
+    await fetch("/api/reset", { method: "POST" })
+    updateChart()
   }
-
 </script>
 
 </body>
