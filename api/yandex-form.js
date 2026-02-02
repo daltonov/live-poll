@@ -1,18 +1,33 @@
-import { kv } from '@vercel/kv'
+import { parse } from "querystring";
 
-export default async function handler(req, res) {
-  try {
-    const { answer } = req.body
-    if (!answer) return res.status(400).json({ ok: false })
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};
 
-    const votes = (await kv.get('votes')) || {}
-    votes[answer] = (votes[answer] || 0) + 1
+globalThis.votes = globalThis.votes || {};
 
-    await kv.set('votes', votes)
+export default function handler(req, res) {
+  let rawBody = "";
 
-    res.status(200).json({ ok: true })
-  } catch (e) {
-    console.error(e)
-    res.status(500).json({ error: e.message })
-  }
+  req.on("data", chunk => {
+    rawBody += chunk.toString();
+  });
+
+  req.on("end", () => {
+    console.log("RAW BODY:", rawBody);
+
+    const parsed = parse(rawBody);
+    console.log("PARSED BODY:", parsed);
+
+    const variantId = parsed.answer;
+
+    if (variantId) {
+      globalThis.votes[variantId] =
+        (globalThis.votes[variantId] || 0) + 1;
+    }
+
+    res.status(200).json({ ok: true });
+  });
 }
