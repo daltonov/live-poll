@@ -52,17 +52,17 @@
 </head>
 <body>
 
-  <div class="container">
-    <div>
-      <div class="chart-wrapper">
-        <canvas id="chart"></canvas>
-      </div>
-
-      <button class="back-btn" onclick="goHome()">← На главную</button>
+<div class="container">
+  <div>
+    <div class="chart-wrapper">
+      <canvas id="chart"></canvas>
     </div>
 
-    <div class="legend" id="legend"></div>
+    <button class="back-btn" onclick="goHome()">← На главную</button>
   </div>
+
+  <div class="legend" id="legend"></div>
+</div>
 
 <script>
   const ANSWERS_MAP = {
@@ -99,25 +99,29 @@
   };
 
   const params = new URLSearchParams(window.location.search);
-  const q = params.get('q'); // q1, q2, ...
-  if (!q) location.href = 'index.html';
+  const q = params.get('q');
 
-  const questionNumber = Number(q.replace('q', '')); // q1 → 1
+  if (!q || !q.startsWith('q')) {
+    window.location.href = 'index.html';
+  }
+
+  const question = Number(q.replace('q', ''));
 
   let chart;
 
   async function loadData() {
-    const res = await fetch(`/api/stats?q=${q}`);
+    const res = await fetch(`/api/stats?question=${question}`);
     const data = await res.json();
 
     const keys = Object.keys(data);
     const values = Object.values(data);
+
+    if (!keys.length) return;
+
     const total = values.reduce((a, b) => a + b, 0);
 
-    if (!total) return;
-
     const labels = keys.map(k =>
-      ANSWERS_MAP[questionNumber]?.[k] || k
+      ANSWERS_MAP[question]?.[k] || k
     );
 
     const colors = [
@@ -142,23 +146,23 @@
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        plugins: { legend: { display: false } }
+        plugins: {
+          legend: { display: false }
+        }
       }
     });
 
-    document.getElementById('legend').innerHTML = labels.map((l, i) => {
-      const percent = ((values[i] / total) * 100).toFixed(1);
-      return `
+    document.getElementById('legend').innerHTML =
+      labels.map((l, i) => `
         <div>
           <span style="color:${colors[i]}">■</span>
-          ${l}: ${percent}%
+          ${l}: ${((values[i] / total) * 100).toFixed(1)}%
         </div>
-      `;
-    }).join('');
+      `).join('');
   }
 
   function goHome() {
-    location.href = 'index.html';
+    window.location.href = 'index.html';
   }
 
   loadData();
