@@ -1,8 +1,19 @@
 export default function handler(req, res) {
-  const votes = globalThis.votes || { A: 0, B: 0, C: 0 };
+  const votes = globalThis.votes || {};
+
+  const labels = Object.keys(votes);
+  const values = Object.values(votes);
+
+  const total = values.reduce((a, b) => a + b, 0);
+
+  const percents = values.map(v =>
+    total === 0 ? 0 : Math.round((v / total) * 100)
+  );
 
   res.json({
-    labels: ["A", "B", "C"],
-    values: [votes.A, votes.B, votes.C]
+    labels,
+    values,
+    percents,
+    total
   });
 }
