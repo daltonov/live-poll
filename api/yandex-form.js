@@ -16,12 +16,10 @@ export default function handler(req, res) {
   });
 
   req.on("end", () => {
-    console.log("RAW BODY:", rawBody);
-
     const parsed = parse(rawBody);
-    console.log("PARSED BODY:", parsed);
 
-    const variantId = parsed.answer;
+    // 👇 ВАЖНО: берём КЛЮЧ, а не значение
+    const variantId = Object.keys(parsed)[0];
 
     if (variantId) {
       globalThis.votes[variantId] =
