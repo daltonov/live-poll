@@ -58,117 +58,112 @@
         <canvas id="chart"></canvas>
       </div>
 
-      <button class="back-btn" onclick="goHome()">
-        ← На главную
-      </button>
+      <button class="back-btn" onclick="goHome()">← На главную</button>
     </div>
 
     <div class="legend" id="legend"></div>
   </div>
 
-  <script>
-    const ANSWERS_MAP = {
-      1: {
-        "9008969287495770": "Дизайнер интерьеров",
-        "1770032788433": "Археолог",
-        "1770032780082": "Тренер ИИ",
-        "1770032798666": "Лингвист"
+<script>
+  const ANSWERS_MAP = {
+    1: {
+      "9008969287495770": "Дизайнер интерьеров",
+      "1770032788433": "Археолог",
+      "1770032780082": "Тренер ИИ",
+      "1770032798666": "Лингвист"
+    },
+    2: {
+      "9008969287733378": "VR-психолог",
+      "1770033025599": "Системный администратор",
+      "1770033037788": "Киберспортсмен",
+      "1770033059616": "Маркетолог"
+    },
+    3: {
+      "9008969287833078": "Космический гид",
+      "1770033096942": "Астролог",
+      "1770033099376": "Пилот самолёта",
+      "1770033100502": "Геолог"
+    },
+    4: {
+      "9008969313885382": "Урбан-эколог",
+      "1770059333193": "Риелтор",
+      "1770059336097": "Банковский аналитик",
+      "1770059337204": "Юрист"
+    },
+    5: {
+      "9008969313915506": "Биохакер",
+      "1770059236597": "Экоинженер",
+      "1770059243014": "Видеоблогер",
+      "1770059245109": "Экономист"
+    }
+  };
+
+  const params = new URLSearchParams(window.location.search);
+  const q = params.get('q'); // q1, q2, ...
+  if (!q) location.href = 'index.html';
+
+  const questionNumber = Number(q.replace('q', '')); // q1 → 1
+
+  let chart;
+
+  async function loadData() {
+    const res = await fetch(`/api/stats?q=${q}`);
+    const data = await res.json();
+
+    const keys = Object.keys(data);
+    const values = Object.values(data);
+    const total = values.reduce((a, b) => a + b, 0);
+
+    if (!total) return;
+
+    const labels = keys.map(k =>
+      ANSWERS_MAP[questionNumber]?.[k] || k
+    );
+
+    const colors = [
+      '#ff6384',
+      '#36a2eb',
+      '#ffcd56',
+      '#4bc0c0',
+      '#9966ff'
+    ];
+
+    if (chart) chart.destroy();
+
+    chart = new Chart(document.getElementById('chart'), {
+      type: 'pie',
+      data: {
+        labels,
+        datasets: [{
+          data: values,
+          backgroundColor: colors
+        }]
       },
-      2: {
-        "9008969287733378": "VR-психолог",
-        "1770033025599": "Системный администратор",
-        "1770033037788": "Киберспортсмен",
-        "1770033059616": "Маркетолог"
-      },
-      3: {
-        "9008969287833078": "Космический гид",
-        "1770033096942": "Астролог",
-        "1770033099376": "Пилот самолёта",
-        "1770033100502": "Геолог"
-      },
-      4: {
-        "9008969313885382": "Урбан-эколог",
-        "1770059333193": "Риелтор",
-        "1770059336097": "Банковский аналитик",
-        "1770059337204": "Юрист"
-      },
-      5: {
-        "9008969313915506": "Биохакер",
-        "1770059236597": "Экоинженер",
-        "1770059243014": "Видеоблогер",
-        "1770059245109": "Экономист"
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } }
       }
-    };
+    });
 
-    const params = new URLSearchParams(window.location.search);
-    const q = params.get('q');
-    
-    fetch(`/api/stats?q=${q}`)
+    document.getElementById('legend').innerHTML = labels.map((l, i) => {
+      const percent = ((values[i] / total) * 100).toFixed(1);
+      return `
+        <div>
+          <span style="color:${colors[i]}">■</span>
+          ${l}: ${percent}%
+        </div>
+      `;
+    }).join('');
+  }
 
-    if (!question) {
-      window.location.href = 'index.html';
-    }
+  function goHome() {
+    location.href = 'index.html';
+  }
 
-    let chart;
-
-    async function loadData() {
-      const res = await fetch(`/api/stats?question=${question}`);
-      const data = await res.json();
-
-     const rawKeys = Object.keys(data);
-      const values = Object.values(data);
-      const total = values.reduce((a, b) => a + b, 0);
-    
-      const labels = rawKeys.map(key => {
-        return ANSWERS_MAP[question]?.[key] || key;
-      });
-
-      const colors = [
-        '#ff6384',
-        '#36a2eb',
-        '#ffcd56',
-        '#4bc0c0',
-        '#9966ff'
-      ];
-
-      if (chart) chart.destroy();
-
-      chart = new Chart(document.getElementById('chart'), {
-        type: 'pie',
-        data: {
-          labels,
-          datasets: [{
-            data: values,
-            backgroundColor: colors
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: { display: false }
-          }
-        }
-      });
-
-      document.getElementById('legend').innerHTML = labels.map((l, i) => {
-        const percent = ((values[i] / total) * 100).toFixed(1);
-        return `
-          <div>
-            <span style="color:${colors[i]}">■</span>
-            ${l}: ${percent}%
-          </div>
-        `;
-      }).join('');
-    }
-
-    function goHome() {
-      window.location.href = 'index.html';
-    }
-
-    loadData();
-    setInterval(loadData, 200);
-  </script>
+  loadData();
+  setInterval(loadData, 1000);
+</script>
 
 </body>
 </html>
