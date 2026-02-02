@@ -2,76 +2,120 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8" />
-  <title>Результаты опроса</title>
+  <title>Результаты голосования</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
   <style>
     body {
-      font-family: sans-serif;
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
       background: white;
+      height: 100vh;
       display: flex;
       justify-content: center;
       align-items: center;
-      height: 100vh;
-      gap: 40px;
     }
-    #legend {
-      font-size: 14px;
-    }
-    .item {
+
+    .container {
       display: flex;
       align-items: center;
-      margin-bottom: 8px;
+      gap: 40px;
     }
-    .color {
+
+    canvas {
+      width: 320px !important;
+      height: 320px !important;
+    }
+
+    .legend {
+      font-size: 14px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .legend-color {
       width: 12px;
       height: 12px;
+      border-radius: 3px;
       margin-right: 8px;
+      flex-shrink: 0;
     }
   </style>
 </head>
 <body>
 
-<canvas id="chart" width="300" height="300"></canvas>
-<div id="legend"></div>
+<div class="container">
+  <canvas id="chart"></canvas>
+  <div id="legend" class="legend"></div>
+</div>
 
 <script>
-async function loadStats() {
-  const res = await fetch('/api/stats')
-  const data = await res.json()
 
-  const entries = Object.entries(data)
-  const total = entries.reduce((s, [,v]) => s + v, 0)
+  const ANSWER_LABELS = {
+    "177003278082": "Тренер ИИ",
+    "1770032788433": "Археолог",
+    "9008969287495770": "Дизайнер интерьеров",
+    "1770032798666": "Лингвист"
+  }
 
-  const labels = entries.map(([k]) => k)
-  const values = entries.map(([,v]) => v)
-  const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0']
+  const COLORS = [
+    "#FF6384",
+    "#36A2EB",
+    "#FFCE56",
+    "#4BC0C0",
+    "#9966FF"
+  ]
 
-  // chart
-  new Chart(document.getElementById('chart'), {
-    type: 'pie',
-    data: {
-      labels,
-      datasets: [{
-        data: values,
-        backgroundColor: colors
-      }]
-    }
-  })
+  async function loadStats() {
+    const res = await fetch("/api/stats")
+    const stats = await res.json()
 
-  // legend
-  const legend = document.getElementById('legend')
-  entries.forEach(([key, value], i) => {
-    const percent = ((value / total) * 100).toFixed(1)
-    legend.innerHTML += `
-      <div class="item">
-        <div class="color" style="background:${colors[i]}"></div>
-        ${key}: ${percent}%
-      </div>
-    `
-  })
-}
+    const entries = Object.entries(stats)
+    const total = entries.reduce((sum, [, count]) => sum + count, 0)
 
-loadStats()
+    const labels = entries.map(([key]) => ANSWER_LABELS[key] ?? key)
+    const values = entries.map(([, count]) => count)
+
+    // 🎯 КРУГОВАЯ ДИАГРАММА
+    new Chart(document.getElementById("chart"), {
+      type: "pie",
+      data: {
+        labels,
+        datasets: [{
+          data: values,
+          backgroundColor: COLORS
+        }]
+      },
+      options: {
+        plugins: {
+          legend: {
+            display: false // ❌ отключаем стандартную легенду сверху
+          }
+        }
+      }
+    })
+
+    // 📊 КАСТОМНАЯ ЛЕГЕНДА СПРАВА
+    const legend = document.getElementById("legend")
+    legend.innerHTML = ""
+
+    entries.forEach(([key, count], index) => {
+      const percent = ((count / total) * 100).toFixed(1)
+
+      legend.innerHTML += `
+        <div class="legend-item">
+          <div class="legend-color" style="background:${COLORS[index]}"></div>
+          ${ANSWER_LABELS[key] ?? key}: ${percent}%
+        </div>
+      `
+    })
+  }
+
+  loadStats()
 </script>
 
 </body>
