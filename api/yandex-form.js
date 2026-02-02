@@ -16,9 +16,12 @@ export default function handler(req, res) {
   });
 
   req.on("end", () => {
-    const parsed = parse(rawBody);
+    console.log("RAW BODY:", rawBody);
 
-    // 👇 ВАЖНО: берём КЛЮЧ, а не значение
+    const parsed = parse(rawBody);
+    console.log("PARSED BODY:", parsed);
+
+    // берём ID варианта (ключ)
     const variantId = Object.keys(parsed)[0];
 
     if (variantId) {
