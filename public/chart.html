@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <title>Результаты</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      background: white;
+    }
+
+    .container {
+      display: flex;
+      align-items: center;
+      gap: 80px;
+      padding: 40px;
+    }
+
+    .chart-wrapper {
+      width: 900px;
+      height: 900px;
+      position: relative;
+    }
+
+    .legend {
+      font-size: 22px;
+      line-height: 1.6;
+    }
+
+    .back-btn {
+      margin-top: 20px;
+      padding: 14px 20px;
+      font-size: 16px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      background: #ef4444;
+      color: white;
+    }
+
+    .back-btn:hover {
+      background: #dc2626;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <div>
+      <div class="chart-wrapper">
+        <canvas id="chart"></canvas>
+      </div>
+
+      <button class="back-btn" onclick="goHome()">
+        ← На главную
+      </button>
+    </div>
+
+    <div class="legend" id="legend"></div>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const question = params.get('question');
+
+    if (!question) {
+      window.location.href = 'index.html';
+    }
+
+    let chart;
+
+    async function loadData() {
+      const res = await fetch(`/api/stats?question=${question}`);
+      const data = await res.json();
+
+      const labels = Object.keys(data);
+      const values = Object.values(data);
+      const total = values.reduce((a, b) => a + b, 0);
+
+      const colors = [
+        '#ff6384',
+        '#36a2eb',
+        '#ffcd56',
+        '#4bc0c0',
+        '#9966ff'
+      ];
+
+      if (chart) chart.destroy();
+
+      chart = new Chart(document.getElementById('chart'), {
+        type: 'pie',
+        data: {
+          labels,
+          datasets: [{
+            data: values,
+            backgroundColor: colors
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false }
+          }
+        }
+      });
+
+      document.getElementById('legend').innerHTML = labels.map((l, i) => {
+        const percent = ((values[i] / total) * 100).toFixed(1);
+        return `
+          <div>
+            <span style="color:${colors[i]}">■</span>
+            ${l}: ${percent}%
+          </div>
+        `;
+      }).join('');
+    }
+
+    function goHome() {
+      window.location.href = 'index.html';
+    }
+
+    loadData();
+    setInterval(loadData, 200);
+  </script>
+
+</body>
+</html>
