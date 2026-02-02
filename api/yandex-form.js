@@ -1,9 +1,10 @@
-// Храним голоса в памяти (для ивента этого достаточно)
 globalThis.votes = globalThis.votes || {};
 
 export default function handler(req, res) {
-  // Яндекс Форма пришлёт параметр answer
-  const variantId = req.body?.answer;
+  const body = req.body || {};
+
+  // берём первое значение из body (ID варианта)
+  const variantId = Object.values(body)[0];
 
   if (variantId) {
     globalThis.votes[variantId] =
