@@ -2,117 +2,76 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8" />
-  <title>Результаты голосования</title>
-
+  <title>Результаты опроса</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
   <style>
     body {
-      margin: 0;
-      font-family: Arial, sans-serif;
-      background: #ffffff;
+      font-family: sans-serif;
+      background: white;
       display: flex;
-      align-items: center;
       justify-content: center;
-      height: 100vh;
-    }
-
-    .container {
-      display: flex;
       align-items: center;
+      height: 100vh;
       gap: 40px;
     }
-
-    .legend {
-      font-size: 18px;
-      min-width: 220px;
+    #legend {
+      font-size: 14px;
     }
-
-    .legend-item {
+    .item {
       display: flex;
       align-items: center;
-      margin-bottom: 12px;
+      margin-bottom: 8px;
     }
-
-    .color-box {
-      width: 16px;
-      height: 16px;
-      margin-right: 10px;
-      border-radius: 4px;
-    }
-
-    .placeholder {
-      text-align: center;
-      color: #999;
-      font-size: 20px;
+    .color {
+      width: 12px;
+      height: 12px;
+      margin-right: 8px;
     }
   </style>
 </head>
 <body>
 
-<div class="container">
-  <canvas id="chart" width="360" height="360"></canvas>
-  <div class="legend" id="legend"></div>
-</div>
+<canvas id="chart" width="300" height="300"></canvas>
+<div id="legend"></div>
 
 <script>
-  const colors = [
-    "#FF6384",
-    "#36A2EB",
-    "#FFCE56",
-    "#4BC0C0"
-  ];
+async function loadStats() {
+  const res = await fetch('/api/stats')
+  const data = await res.json()
 
-  const chart = new Chart(document.getElementById("chart"), {
-    type: "pie",
+  const entries = Object.entries(data)
+  const total = entries.reduce((s, [,v]) => s + v, 0)
+
+  const labels = entries.map(([k]) => k)
+  const values = entries.map(([,v]) => v)
+  const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0']
+
+  // chart
+  new Chart(document.getElementById('chart'), {
+    type: 'pie',
     data: {
-      labels: ["Ожидание голосов"],
+      labels,
       datasets: [{
-        data: [1],
-        backgroundColor: ["#e0e0e0"]
+        data: values,
+        backgroundColor: colors
       }]
-    },
-    options: {
-      plugins: {
-        legend: { display: false }
-      },
-      animation: {
-        duration: 300
-      }
     }
-  });
+  })
 
-  async function update() {
-    const res = await fetch("/api/stats");
-    const data = await res.json();
+  // legend
+  const legend = document.getElementById('legend')
+  entries.forEach(([key, value], i) => {
+    const percent = ((value / total) * 100).toFixed(1)
+    legend.innerHTML += `
+      <div class="item">
+        <div class="color" style="background:${colors[i]}"></div>
+        ${key}: ${percent}%
+      </div>
+    `
+  })
+}
 
-    if (!data.total || data.total === 0) {
-      document.getElementById("legend").innerHTML =
-        `<div class="placeholder">Ожидание голосов…</div>`;
-      return;
-    }
-
-    chart.data.labels = data.labels;
-    chart.data.datasets[0].data = data.values;
-    chart.data.datasets[0].backgroundColor = colors;
-    chart.update();
-
-    const legend = document.getElementById("legend");
-    legend.innerHTML = "";
-
-    data.labels.forEach((label, i) => {
-      const item = document.createElement("div");
-      item.className = "legend-item";
-      item.innerHTML = `
-        <div class="color-box" style="background:${colors[i % colors.length]}"></div>
-        <div>${label}: <b>${data.percents[i]}%</b></div>
-      `;
-      legend.appendChild(item);
-    });
-  }
-
-  update();
-  setInterval(update, 2000);
+loadStats()
 </script>
 
 </body>
