@@ -3,7 +3,6 @@ import { kv } from '@vercel/kv'
 
 export default async function handler(req, res) {
   try {
-    await kv.del('votes')
     const votes = (await kv.get('votes')) || {}
     res.status(200).json(votes)
   } catch (e) {
