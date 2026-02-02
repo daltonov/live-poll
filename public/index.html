@@ -6,6 +6,21 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <style>
+    #resetBtn {
+      margin-top: 24px;
+      padding: 10px 18px;
+      font-size: 14px;
+      background: #ff4d4f;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    #resetBtn:hover {
+      background: #e04445;
+    }
+
     body {
       margin: 0;
       font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
@@ -64,6 +79,7 @@
     <canvas id="chart"></canvas>
   </div>
   <div id="legend" class="legend"></div>
+  <button id="resetBtn">Сбросить результаты</button>
 </div>
 
 <script>
