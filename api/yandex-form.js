@@ -19,26 +19,27 @@ export default async function handler(req, res) {
 
     console.log('RAW BODY:', rawBody)
 
-    const parsed = JSON.parse(rawBody)
+    // 🔧 FIX: Яндекс присылает python-repr, а не JSON
+    const normalized = rawBody
+      .replace(/\\'/g, '"') // \' → "
+      .replace(/^'/, '')
+      .replace(/'$/, '')
 
-    // 1️⃣ Достаём answer.data
+    const parsed = JSON.parse(normalized)
+
+    // 1️⃣ answer.data
     const answerData = parsed?.answer?.data
     if (!answerData) {
       console.log('NO answer.data')
       return res.status(200).json({ ok: true })
     }
 
-    // 2️⃣ Берём первый ключ (answer_choices_XXXX)
-    const firstQuestionKey = Object.keys(answerData)[0]
-    if (!firstQuestionKey) {
-      console.log('NO question key')
-      return res.status(200).json({ ok: true })
-    }
+    // 2️⃣ первый ключ вопроса
+    const questionKey = Object.keys(answerData)[0]
+    const choice = answerData[questionKey]?.value?.[0]
 
-    // 3️⃣ Берём value[0].key → ID варианта ответа
-    const choice = answerData[firstQuestionKey]?.value?.[0]
+    // 3️⃣ ID варианта ответа
     const answerKey = choice?.key
-
     if (!answerKey) {
       console.log('NO answer key')
       return res.status(200).json({ ok: true })
@@ -46,7 +47,7 @@ export default async function handler(req, res) {
 
     console.log('ANSWER KEY:', answerKey)
 
-    // 4️⃣ Пишем в Redis
+    // 4️⃣ Redis
     const votes = (await kv.get('votes')) || {}
     votes[answerKey] = (votes[answerKey] || 0) + 1
     await kv.set('votes', votes)
