@@ -1,17 +1,11 @@
-import { kv } from "@vercel/kv";
+import { kv } from '@vercel/kv'
 
 export default async function handler(req, res) {
-  res.setHeader("Cache-Control", "no-store");
-
-  const votes = (await kv.hgetall("votes")) || {};
-
-  const labels = Object.keys(votes);
-  const values = Object.values(votes).map(Number);
-
-  const total = values.reduce((a, b) => a + b, 0);
-  const percents = values.map(v =>
-    total === 0 ? 0 : Math.round((v / total) * 100)
-  );
-
-  res.json({ labels, values, percents, total });
+  try {
+    const stats = await kv.get('poll:stats')
+    res.status(200).json(stats ?? {})
+  } catch (e) {
+    console.error(e)
+    res.status(500).json({ error: 'stats failed' })
+  }
 }
