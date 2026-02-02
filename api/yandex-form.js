@@ -1,86 +1,92 @@
 const { kv } = require("@vercel/kv");
 
-exports.config = {
-  api: {
-    bodyParser: false,
-  },
-};
-
+/**
+ * Соответствие question.id → номер вопроса
+ */
 const QUESTION_MAP = {
-  107664842: "q1",
-  107665595: "q2",
-  107665966: "q3",
-  107716049: "q4",
-  107716069: "q5",
+  107664842: "q1", // первая форма
+  107665595: "q2", // вторая форма
+  107665966: "q3", // третья форма
+  107716049: "q4", // четвертая форма
+  107716069: "q5", // пятая форма
 };
 
-function readBody(req) {
-  return new Promise((resolve, reject) => {
+/**
+ * Читаем raw body вручную
+ */
+function readRawBody(req) {
+  return new Promise((resolve) => {
     let data = "";
     req.on("data", (chunk) => (data += chunk));
     req.on("end", () => resolve(data));
-    req.on("error", reject);
   });
 }
 
-module.exports = async function handler(req, res) {
+/**
+ * Надежный парсер Яндекс Форм
+ * (вытаскивает JSON между { ... })
+ */
+function safeParse(raw) {
+  if (!raw) return null;
+
+  const start = raw.indexOf("{");
+  const end = raw.lastIndexOf("}");
+
+  if (start === -1 || end === -1) return null;
+
+  const jsonString = raw.slice(start, end + 1);
+
   try {
-    const raw = (await readBody(req)) || "";
-
-    console.log("===== NEW YANDEX FORM EVENT =====");
-    console.log("RAW STRING:", raw.slice(0, 2000));
-
-    let jsonText = raw;
-
-    // 🔑 убираем экранирование
-    if (jsonText.trim().startsWith("\\{")) {
-      console.log("Detected escaped JSON, unescaping...");
-      jsonText = jsonText.replace(/\\"/g, '"');
-    }
-
-    let body;
-    try {
-      body = JSON.parse(jsonText);
-    } catch (e) {
-      console.error("JSON.parse FAILED");
-      console.error(jsonText.slice(0, 500));
-      return res.status(200).json({ ok: false });
-    }
-
-    const answerData = body?.answer?.data;
-    if (!answerData) {
-      console.log("NO answer.data");
-      return res.status(200).json({ ok: true });
-    }
-
-    for (const block of Object.values(answerData)) {
-      const questionId = block?.question?.id;
-      const values = block?.value;
-
-      if (!questionId || !QUESTION_MAP[questionId]) {
-        console.log("Unknown question:", questionId);
-        continue;
-      }
-
-      const qKey = QUESTION_MAP[questionId];
-
-      if (!Array.isArray(values)) continue;
-
-      for (const v of values) {
-        const answerKey = v?.key;
-        if (!answerKey) continue;
-
-        const redisKey = `${qKey}:${answerKey}`;
-        await kv.incr(redisKey);
-
-        console.log("COUNTED:", redisKey);
-      }
-    }
-
-    console.log("===== END EVENT =====");
-    return res.status(200).json({ ok: true });
-  } catch (err) {
-    console.error("HANDLER ERROR:", err);
-    return res.status(200).json({ ok: true });
+    return JSON.parse(jsonString);
+  } catch (e) {
+    console.error("JSON.parse failed");
+    return null;
   }
+}
+
+module.exports = async function handler(req, res) {
+  if (req.method !== "POST") {
+    return res.status(405).end();
+  }
+
+  console.log("===== NEW YANDEX FORM EVENT =====");
+
+  const raw = await readRawBody(req);
+  console.log("RAW STRING:", raw.slice(0, 500));
+
+  const body = safeParse(raw);
+  if (!body) {
+    console.log("❌ BODY PARSE FAILED");
+    return res.status(200).json({ ok: false });
+  }
+
+  const answer = body?.answer?.data;
+  if (!answer) {
+    console.log("❌ NO answer.data");
+    return res.status(200).json({ ok: false });
+  }
+
+  const answerKey = Object.keys(answer)[0];
+  const value = answer[answerKey]?.value?.[0];
+  const questionId = answer[answerKey]?.question?.id;
+
+  if (!value || !questionId) {
+    console.log("❌ NO value OR questionId");
+    return res.status(200).json({ ok: false });
+  }
+
+  const questionCode = QUESTION_MAP[questionId];
+  if (!questionCode) {
+    console.log("❌ UNKNOWN question.id:", questionId);
+    return res.status(200).json({ ok: false });
+  }
+
+  const choiceKey = value.key;
+  const redisKey = `${questionCode}:${choiceKey}`;
+
+  console.log(`✅ COUNTED → ${redisKey}`);
+
+  await kv.incr(redisKey);
+
+  return res.status(200).json({ ok: true });
 };
