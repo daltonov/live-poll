@@ -1,53 +1,108 @@
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
   <meta charset="UTF-8" />
-  <title>Live Vote</title>
+  <title>Результаты голосования</title>
+
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
   <style>
     body {
-      background: #000;
       margin: 0;
+      font-family: Arial, sans-serif;
+      background: #ffffff;
       display: flex;
       align-items: center;
       justify-content: center;
       height: 100vh;
     }
-    canvas {
-      max-width: 80vw;
-      max-height: 80vh;
+
+    .container {
+      display: flex;
+      align-items: center;
+      gap: 40px;
+    }
+
+    .legend {
+      font-size: 18px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .color-box {
+      width: 16px;
+      height: 16px;
+      margin-right: 10px;
+      border-radius: 4px;
     }
   </style>
 </head>
 <body>
-  <canvas id="chart"></canvas>
 
-  <script>
-    const chart = new Chart(document.getElementById("chart"), {
-      type: "bar",
-      data: {
-        labels: ["A", "B", "C"],
-        datasets: [{
-          label: "Голоса",
-          data: [0, 0, 0]
-        }]
-      },
-      options: {
-        scales: {
-          y: { beginAtZero: true }
-        }
+<div class="container">
+  <canvas id="chart" width="400" height="400"></canvas>
+
+  <div class="legend" id="legend"></div>
+</div>
+
+<script>
+  const colors = [
+    "#FF6384",
+    "#36A2EB",
+    "#FFCE56",
+    "#4BC0C0",
+    "#9966FF",
+    "#FF9F40"
+  ];
+
+  const chart = new Chart(document.getElementById("chart"), {
+    type: "pie",
+    data: {
+      labels: [],
+      datasets: [{
+        data: [],
+        backgroundColor: colors
+      }]
+    },
+    options: {
+      animation: {
+        duration: 500
       }
-    });
-
-    async function update() {
-      const res = await fetch("/api/stats");
-      const data = await res.json();
-      chart.data.datasets[0].data = data.values;
-      chart.update();
     }
+  });
 
-    setInterval(update, 1000);
-    update();
-  </script>
+  async function update() {
+    const res = await fetch("/api/stats");
+    const data = await res.json();
+
+    chart.data.labels = data.labels;
+    chart.data.datasets[0].data = data.values;
+    chart.update();
+
+    // легенда с процентами
+    const legend = document.getElementById("legend");
+    legend.innerHTML = "";
+
+    data.labels.forEach((label, i) => {
+      const item = document.createElement("div");
+      item.className = "legend-item";
+
+      item.innerHTML = `
+        <div class="color-box" style="background:${colors[i % colors.length]}"></div>
+        <div>${label}: <b>${data.percents[i]}%</b></div>
+      `;
+
+      legend.appendChild(item);
+    });
+  }
+
+  update();
+  setInterval(update, 2000);
+</script>
+
 </body>
 </html>
