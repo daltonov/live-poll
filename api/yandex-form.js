@@ -173,7 +173,7 @@ module.exports = async function handler(req, res) {
     }
 
     // question id может быть на value0.question.id
-    const questionId = value0?.question?.id;
+    const questionId = entry?.question?.id;
     const answerKey = value0?.key || value0?.value || null;
 
     console.log('RESOLVED first data key =>', firstKey);
