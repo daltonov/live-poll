@@ -1,12 +1,9 @@
 import { parse } from "querystring";
+import { kv } from "@vercel/kv";
 
 export const config = {
-  api: {
-    bodyParser: false,
-  },
+  api: { bodyParser: false },
 };
-
-globalThis.votes = globalThis.votes || {};
 
 export default function handler(req, res) {
   let rawBody = "";
@@ -15,18 +12,14 @@ export default function handler(req, res) {
     rawBody += chunk.toString();
   });
 
-  req.on("end", () => {
-    console.log("RAW BODY:", rawBody);
-
+  req.on("end", async () => {
     const parsed = parse(rawBody);
-    console.log("PARSED BODY:", parsed);
 
-    // берём ID варианта (ключ)
+    // ID варианта — это ключ
     const variantId = Object.keys(parsed)[0];
 
     if (variantId) {
-      globalThis.votes[variantId] =
-        (globalThis.votes[variantId] || 0) + 1;
+      await kv.hincrby("votes", variantId, 1);
     }
 
     res.status(200).json({ ok: true });
