@@ -1,24 +1,26 @@
 import { parse } from "querystring";
 
-// хранилище голосов
-globalThis.votes = globalThis.votes || {};
-
 export const config = {
   api: {
-    bodyParser: false, // ⬅️ ВАЖНО
+    bodyParser: false,
   },
 };
 
-export default async function handler(req, res) {
-  let body = "";
+globalThis.votes = globalThis.votes || {};
+
+export default function handler(req, res) {
+  let rawBody = "";
 
   req.on("data", chunk => {
-    body += chunk.toString();
+    rawBody += chunk.toString();
   });
 
   req.on("end", () => {
-    // body вида: answer=abc123
-    const parsed = parse(body);
+    console.log("RAW BODY:", rawBody);
+
+    const parsed = parse(rawBody);
+    console.log("PARSED BODY:", parsed);
+
     const variantId = parsed.answer;
 
     if (variantId) {
