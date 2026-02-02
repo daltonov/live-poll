@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Live Vote</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      background: #000;
+      margin: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+    }
+    canvas {
+      max-width: 80vw;
+      max-height: 80vh;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="chart"></canvas>
+
+  <script>
+    const chart = new Chart(document.getElementById("chart"), {
+      type: "bar",
+      data: {
+        labels: ["A", "B", "C"],
+        datasets: [{
+          label: "Голоса",
+          data: [0, 0, 0]
+        }]
+      },
+      options: {
+        scales: {
+          y: { beginAtZero: true }
+        }
+      }
+    });
+
+    async function update() {
+      const res = await fetch("/api/stats");
+      const data = await res.json();
+      chart.data.datasets[0].data = data.values;
+      chart.update();
+    }
+
+    setInterval(update, 1000);
+    update();
+  </script>
+</body>
+</html>
