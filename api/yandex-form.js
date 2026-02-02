@@ -1,15 +1,31 @@
+import { parse } from "querystring";
+
+// хранилище голосов
 globalThis.votes = globalThis.votes || {};
 
-export default function handler(req, res) {
-  const body = req.body || {};
+export const config = {
+  api: {
+    bodyParser: false, // ⬅️ ВАЖНО
+  },
+};
 
-  // берём первое значение из body (ID варианта)
-  const variantId = Object.values(body)[0];
+export default async function handler(req, res) {
+  let body = "";
 
-  if (variantId) {
-    globalThis.votes[variantId] =
-      (globalThis.votes[variantId] || 0) + 1;
-  }
+  req.on("data", chunk => {
+    body += chunk.toString();
+  });
 
-  res.status(200).json({ ok: true });
+  req.on("end", () => {
+    // body вида: answer=abc123
+    const parsed = parse(body);
+    const variantId = parsed.answer;
+
+    if (variantId) {
+      globalThis.votes[variantId] =
+        (globalThis.votes[variantId] || 0) + 1;
+    }
+
+    res.status(200).json({ ok: true });
+  });
 }
