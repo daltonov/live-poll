@@ -145,6 +145,15 @@
   }
 
   loadStats()
+  document.getElementById("resetBtn").onclick = async () => {
+  const ok = confirm("Сбросить все результаты?")
+  if (!ok) return
+
+  await fetch("/api/reset", { method: "POST" })
+
+  location.reload()
+  }
+
 </script>
 
 </body>
