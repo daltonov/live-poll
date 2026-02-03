@@ -2,7 +2,8 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8" />
-  <title>Результаты</title>
+  <title>Результаты опроса</title>
+
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <style>
@@ -32,15 +33,32 @@
       line-height: 1.6;
     }
 
-    .back-btn {
+    .controls {
       margin-top: 20px;
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+    }
+
+    button {
       padding: 14px 20px;
       font-size: 16px;
       border-radius: 8px;
       border: none;
       cursor: pointer;
-      background: #ef4444;
       color: white;
+    }
+
+    .back {
+      background: #ef4444;
+    }
+
+    .reset {
+      background: #111827;
+    }
+
+    button:hover {
+      opacity: 0.9;
     }
   </style>
 </head>
@@ -51,16 +69,18 @@
     <div class="chart-wrapper">
       <canvas id="chart"></canvas>
     </div>
-    <button class="back-btn" onclick="location.href='index.html'">
-      ← На главную
-    </button>
+
+    <div class="controls">
+      <button class="back" onclick="goHome()">← На главную</button>
+      <button class="reset" onclick="resetStats()">Сброс</button>
+    </div>
   </div>
 
   <div class="legend" id="legend"></div>
 </div>
 
 <script>
-
+/* ===== КАРТА ВОПРОСОВ ===== */
 const QUESTIONS = {
   q1: [
     { id: "9008969287495770", label: "Дизайнер интерьеров" },
@@ -68,28 +88,24 @@ const QUESTIONS = {
     { id: "1770032780082", label: "Тренер ИИ" },
     { id: "1770032798666", label: "Лингвист" }
   ],
-
   q2: [
     { id: "9008969287733378", label: "VR-психолог" },
     { id: "1770033037788", label: "Киберспортсмен" },
     { id: "1770033025599", label: "Системный администратор" },
     { id: "1770033059616", label: "Маркетолог" }
   ],
-
   q3: [
     { id: "9008969287833078", label: "Космический гид" },
     { id: "1770033096942", label: "Астролог" },
     { id: "1770033099376", label: "Пилот самолёта" },
     { id: "1770033100502", label: "Геолог" }
   ],
-
   q4: [
     { id: "9008969313885382", label: "Урбан-эколог" },
     { id: "1770059333193", label: "Риелтор" },
     { id: "1770059336097", label: "Банковский аналитик" },
     { id: "1770059337204", label: "Юрист" }
   ],
-
   q5: [
     { id: "9008969313915506", label: "Биохакер" },
     { id: "1770059236597", label: "Экоинженер" },
@@ -98,57 +114,70 @@ const QUESTIONS = {
   ]
 };
 
+/* ===== ПАРАМЕТР ===== */
+const params = new URLSearchParams(window.location.search);
+const q = params.get('q');
 
-const COLORS = ['#ff6384', '#36a2eb', '#ffcd56', '#4bc0c0'];
-
-const params = new URLSearchParams(location.search);
-const question = params.get('q');
-if (!QUESTIONS[question]) location.href = 'index.html';
-
-const config = QUESTIONS[question];
-const labels = config.map(a => a.label);
-const ids = config.map(a => a.id);
-
-const ctx = document.getElementById('chart');
-const chart = new Chart(ctx, {
-  type: 'pie',
-  data: {
-    labels,
-    datasets: [{
-      data: new Array(ids.length).fill(0),
-      backgroundColor: COLORS
-    }]
-  },
-  options: {
-    responsive: true,
-    maintainAspectRatio: false,
-    animation: false,
-    plugins: {
-      legend: { display: false }
-    }
-  }
-});
-
-async function update() {
-  const res = await fetch(`/api/stats?q=${question}`);
-  const stats = await res.json();
-
-  const values = ids.map(id => Number(stats[id] || 0));
-  chart.data.datasets[0].data = values;
-  chart.update('none');
-
-  const total = values.reduce((a,b)=>a+b,0) || 1;
-  document.getElementById('legend').innerHTML =
-    labels.map((l,i)=>`
-      <div>
-        <span style="color:${COLORS[i]}">■</span>
-        ${l}: ${((values[i]/total)*100).toFixed(1)}%
-      </div>
-    `).join('');
+/* НЕ РЕДИРЕКТИМ — ПРОСТО НЕ РИСУЕМ */
+if (!q || !QUESTIONS[q]) {
+  document.getElementById('legend').innerHTML = 'Нет данных';
 }
 
-update();
-setInterval(update, 1000); // ✅ плавно и стабильно
+/* ===== CHART ===== */
+let chart;
+const colors = ['#ff6384', '#36a2eb', '#ffcd56', '#4bc0c0', '#9966ff'];
+
+async function loadData() {
+  if (!QUESTIONS[q]) return;
+
+  const res = await fetch(`/api/stats?question=${q}`);
+  const data = await res.json();
+
+  const labels = [];
+  const values = [];
+
+  QUESTIONS[q].forEach(item => {
+    labels.push(item.label);
+    values.push(data[item.id] || 0);
+  });
+
+  const total = values.reduce((a, b) => a + b, 0) || 1;
+
+  if (chart) chart.destroy();
+
+  chart = new Chart(document.getElementById('chart'), {
+    type: 'pie',
+    data: {
+      labels,
+      datasets: [{
+        data: values,
+        backgroundColor: colors
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } }
+    }
+  });
+
+  document.getElementById('legend').innerHTML = labels.map((l, i) => {
+    const percent = ((values[i] / total) * 100).toFixed(1);
+    return `<div><span style="color:${colors[i]}">■</span> ${l}: ${percent}%</div>`;
+  }).join('');
+}
+
+function goHome() {
+  location.href = 'index.html';
+}
+
+async function resetStats() {
+  await fetch(`/api/reset?question=${q}`);
+  loadData();
+}
+
+loadData();
+setInterval(loadData, 200);
 </script>
 
 </body>
