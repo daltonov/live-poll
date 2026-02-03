@@ -130,7 +130,7 @@ const colors = ['#ff6384', '#36a2eb', '#ffcd56', '#4bc0c0', '#9966ff'];
 async function loadData() {
   if (!QUESTIONS[q]) return;
 
-  const res = await fetch(`/api/stats?question=${q}`);
+  const res = await fetch(`/api/stats?q=${q}`);
   const data = await res.json();
 
   const labels = [];
