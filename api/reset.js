@@ -1,22 +1,17 @@
-import { kv } from "@vercel/kv"
+import { kv } from '@vercel/kv';
 
 export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" })
+  const { q } = req.query;
+
+  if (!q) {
+    return res.status(400).json({ error: 'q is required' });
   }
 
-  try {
-    // Получаем все ключи
-    const keys = await kv.keys("*")
+  const key = `stats:${q}`;
 
-    // Удаляем только голоса
-    for (const key of keys) {
-      await kv.del(key)
-    }
+  await kv.del(key);
 
-    res.status(200).json({ ok: true })
-  } catch (err) {
-    console.error("RESET ERROR", err)
-    res.status(500).json({ error: "Reset failed" })
-  }
+  console.log(`RESET → ${key}`);
+
+  res.json({ ok: true });
 }
