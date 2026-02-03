@@ -1,359 +1,131 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="utf-8" />
+  <meta charset="UTF-8" />
   <title>Результаты</title>
-
-  <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <style>
-    :root{
-      --chart-size: 900px;
-    }
-
-    html,body{
-      height:100%;
-      margin:0;
-      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
-      background:#fff;
-      color:#111;
-    }
-
-    .page {
-      min-height:100%;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      padding:24px;
-      box-sizing:border-box;
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      background: white;
     }
 
     .container {
-      display:flex;
-      gap:48px;
-      align-items:flex-start;
-      width:100%;
-      max-width:1400px;
-    }
-
-    /* left column: chart + button */
-    .left {
-      display:flex;
-      flex-direction:column;
-      align-items:center;
+      display: flex;
+      align-items: center;
+      gap: 80px;
+      padding: 40px;
     }
 
     .chart-wrapper {
-      width: var(--chart-size);
-      height: var(--chart-size);
-      box-sizing: border-box;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      background: #fff;
+      width: 900px;
+      height: 900px;
     }
 
-    /* set explicit canvas size so Chart.js layout is stable */
-    canvas#chart {
-      width: var(--chart-size) !important;
-      height: var(--chart-size) !important;
-      max-width: 100%;
-      display:block;
-    }
-
-    .controls {
-      margin-top:20px; /* 20px below chart as requested */
-      display:flex;
-      gap:12px;
-      align-items:center;
-    }
-
-    .btn {
-      padding:12px 18px;
-      font-size:16px;
-      border-radius:8px;
-      border: none;
-      cursor:pointer;
-    }
-
-    .btn.back {
-      background:#ef4444;
-      color:#fff;
-    }
-
-    .btn.back:hover { background:#dc2626; }
-
-    .btn.reset {
-      background:#333;
-      color:#fff;
-    }
-
-    /* right column: legend */
     .legend {
-      min-width:260px;
-      max-width:420px;
-      font-size:20px; /* larger legend text */
-      line-height:1.5;
-      display:flex;
-      flex-direction:column;
-      gap:12px;
+      font-size: 22px;
+      line-height: 1.6;
     }
 
-    .legend-item {
-      display:flex;
-      align-items:center;
-      gap:12px;
-    }
-
-    .legend-swatch {
-      width:20px;
-      height:20px;
-      border-radius:4px;
-      flex-shrink:0;
-    }
-
-    .empty {
-      font-size:20px;
-      color:#666;
-      text-align:center;
-    }
-
-    @media (max-width:1100px){
-      .container { flex-direction:column; align-items:center; gap:24px; }
-      .legend { width:100%; max-width:900px; }
+    .back-btn {
+      margin-top: 20px;
+      padding: 14px 20px;
+      font-size: 16px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      background: #ef4444;
+      color: white;
     }
   </style>
 </head>
 <body>
 
-<div class="page">
-  <div class="container">
-
-    <div class="left">
-      <div class="chart-wrapper" role="region" aria-label="Диаграмма ответов">
-        <canvas id="chart" width="900" height="900"></canvas>
-      </div>
-
-      <div class="controls">
-        <button class="btn back" id="backBtn" title="На главную">← На главную</button>
-        <button class="btn reset" id="resetBtn" title="Сбросить результаты этого вопроса">Сброс (Тест)</button>
-      </div>
+<div class="container">
+  <div>
+    <div class="chart-wrapper">
+      <canvas id="chart"></canvas>
     </div>
-
-    <div class="legend" id="legend" aria-live="polite">
-      <!-- legend items inserted here -->
-    </div>
-
+    <button class="back-btn" onclick="location.href='index.html'">
+      ← На главную
+    </button>
   </div>
+
+  <div class="legend" id="legend"></div>
 </div>
 
 <script>
-/*
-  Final chart.html
-  - Strictly uses query param "q" (q1..q5)
-  - Fetches /api/stats?q=<q>
-  - Uses ANSWERS_MAP to render labels
-  - Updates chart in-place (no unnecessary destroy/create)
-  - Shows friendly messages when empty or on error
-*/
-
 const ANSWERS_MAP = {
-  1: {
-    "9008969287495770": "Дизайнер интерьеров",
-    "1770032788433": "Археолог",
-    "1770032780082": "Тренер ИИ",
-    "1770032798666": "Лингвист"
-  },
-  2: {
+  q2: {
     "9008969287733378": "VR-психолог",
-    "1770033025599": "Системный администратор",
     "1770033037788": "Киберспортсмен",
+    "1770033025599": "Системный администратор",
     "1770033059616": "Маркетолог"
-  },
-  3: {
-    "9008969287833078": "Космический гид",
-    "1770033096942": "Астролог",
-    "1770033099376": "Пилот самолёта",
-    "1770033100502": "Геолог"
-  },
-  4: {
-    "9008969313885382": "Урбан-эколог",
-    "1770059333193": "Риелтор",
-    "1770059336097": "Банковский аналитик",
-    "1770059337204": "Юрист"
-  },
-  5: {
-    "9008969313915506": "Биохакер",
-    "1770059236597": "Экоинженер",
-    "1770059243014": "Видеоблогер",
-    "1770059245109": "Экономист"
   }
 };
 
 const COLORS = [
-  '#ff6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF',
-  '#FF9F40', '#8A2BE2', '#00A86B', '#E83A3A', '#2E8B57'
+  '#ff6384',
+  '#36a2eb',
+  '#ffcd56',
+  '#4bc0c0',
+  '#9966ff'
 ];
 
-const params = new URLSearchParams(window.location.search);
-const q = params.get('q'); // expected "q1" .. "q5"
+const params = new URLSearchParams(location.search);
+const question = params.get('q');
+if (!question) location.href = 'index.html';
 
-if (!q || !/^q[1-5]$/.test(q)) {
-  // not a valid question param -> go home (safe fallback)
-  console.warn('chart.html: missing or invalid q param:', q);
-  window.location.href = 'index.html';
-}
+const ctx = document.getElementById('chart');
+let chart;
 
-const questionNumber = Number(q.replace(/^q/, '')); // 1..5
-const legendEl = document.getElementById('legend');
-const backBtn = document.getElementById('backBtn');
-const resetBtn = document.getElementById('resetBtn');
+// фиксированный порядок
+const answerKeys = Object.keys(ANSWERS_MAP[question]);
+const labels = answerKeys.map(k => ANSWERS_MAP[question][k]);
 
-backBtn.addEventListener('click', () => { window.location.href = 'index.html'; });
-
-// Optional reset endpoint: if you have /api/reset?q=q1 implemented it will work.
-// If not, the button simply reloads for now.
-resetBtn.addEventListener('click', async () => {
-  if (!confirm('Сбросить результаты для этого вопроса?')) return;
-  try {
-    // try calling API reset (server must implement)
-    const res = await fetch(`/api/reset?q=${encodeURIComponent(q)}`, { method: 'POST' });
-    if (!res.ok) throw new Error('reset failed');
-    await loadAndRender(); // refresh after reset
-  } catch (e) {
-    // fallback: just reload data
-    console.warn('reset failed or not implemented, reloading data', e);
-    await loadAndRender();
+chart = new Chart(ctx, {
+  type: 'pie',
+  data: {
+    labels,
+    datasets: [{
+      data: new Array(answerKeys.length).fill(0),
+      backgroundColor: COLORS
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false }
+    }
   }
 });
 
-const canvas = document.getElementById('chart');
-let chart = null;
+async function updateData() {
+  const res = await fetch(`/api/stats?q=${question}`);
+  const data = await res.json();
 
-// Build an "empty" chart initially (so canvas is managed); we'll update in-place.
-function createEmptyChart() {
-  const ctx = canvas.getContext('2d');
-  chart = new Chart(ctx, {
-    type: 'pie',
-    data: {
-      labels: [],
-      datasets: [{
-        data: [],
-        backgroundColor: []
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      animation: {
-        duration: 200
-      },
-      plugins: {
-        legend: { display: false }
-      }
-    }
-  });
-}
-document.body.insertAdjacentHTML(
-  'afterbegin',
-  '<h1 style="color:red">JS РАБОТАЕТ</h1>'
-);
-createEmptyChart();
-
-async function fetchStats() {
-  try {
-    const res = await fetch(`/api/stats?q=${encodeURIComponent(q)}`, { cache: 'no-store' });
-    if (!res.ok) {
-      console.error('fetch /api/stats failed', res.status);
-      return null;
-    }
-    const json = await res.json();
-    // Expect object mapping answerKey -> count
-    if (!json || typeof json !== 'object') return null;
-    return json;
-  } catch (e) {
-    console.error('fetch error', e);
-    return null;
-  }
-}
-
-function renderEmptyMessage(msg) {
-  // clear chart data
-  if (chart) {
-    chart.data.labels = [];
-    chart.data.datasets[0].data = [];
-    chart.data.datasets[0].backgroundColor = [];
-    chart.update();
-  }
-  legendEl.innerHTML = `<div class="empty">${msg}</div>`;
-}
-
-function updateChartFromStats(stats) {
-  // stats: { answerKey: count, ... }
-  const keys = Object.keys(stats || {});
-  if (!keys.length) {
-    renderEmptyMessage('Пока нет ответов');
-    return;
-  }
-
-  // parse numeric counts (they may come as strings)
-  const counts = keys.map(k => Number(stats[k] ?? 0));
-  const total = counts.reduce((s, v) => s + (isNaN(v) ? 0 : v), 0);
-  if (total === 0) {
-    renderEmptyMessage('Пока нет ответов');
-    return;
-  }
-
-  // labels from ANSWERS_MAP by questionNumber; fallback to key
-  const labels = keys.map((k) => {
-    const map = ANSWERS_MAP[questionNumber] || {};
-    return map[k] || k;
-  });
-
-  // colors (ensure length)
-  const bg = keys.map((_, i) => COLORS[i % COLORS.length]);
-
-  // update chart dataset in-place for smoothness
-  chart.data.labels = labels;
-  chart.data.datasets[0].data = counts;
-  chart.data.datasets[0].backgroundColor = bg;
+  const values = answerKeys.map(k => data[k] || 0);
+  chart.data.datasets[0].data = values;
   chart.update();
 
-  // render legend with percentages
-  legendEl.innerHTML = labels.map((label, i) => {
-    const pct = ((counts[i] / total) * 100).toFixed(1);
-    return `<div class="legend-item">
-      <div class="legend-swatch" style="background:${bg[i]}"></div>
-      <div>${label}: ${pct}%</div>
-    </div>`;
-  }).join('');
+  const total = values.reduce((a,b)=>a+b,0) || 1;
+  document.getElementById('legend').innerHTML = labels.map((l,i)=>`
+    <div>
+      <span style="color:${COLORS[i]}">■</span>
+      ${l}: ${((values[i]/total)*100).toFixed(1)}%
+    </div>
+  `).join('');
 }
 
-let isFetching = false;
-const REFRESH_INTERVAL = 200; // ms — adjust if needed
-
-async function loadAndRender() {
-  if (isFetching) return;
-  isFetching = true;
-  const stats = await fetchStats();
-  isFetching = false;
-  if (!stats) {
-    renderEmptyMessage('Ошибка получения данных');
-    return;
-  }
-  updateChartFromStats(stats);
-}
-
-// initial load + periodic refresh
-loadAndRender();
-const intervalId = setInterval(loadAndRender, REFRESH_INTERVAL);
-
-// cleanup on unload (if needed)
-window.addEventListener('beforeunload', () => {
-  clearInterval(intervalId);
-});
+updateData();
+setInterval(updateData, 1000); // 🔥 1 сек — идеально
 </script>
+
 </body>
 </html>
