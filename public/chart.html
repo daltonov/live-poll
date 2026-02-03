@@ -56,6 +56,20 @@
     .reset {
       background: #111827;
     }
+    .reset-btn {
+      margin-top: 10px;
+      padding: 14px 20px;
+      font-size: 16px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      background: #111827;
+      color: white;
+    }
+    
+    .reset-btn:hover {
+      background: #000;
+    }
 
     button:hover {
       opacity: 0.9;
@@ -72,7 +86,9 @@
 
     <div class="controls">
       <button class="back" onclick="goHome()">← На главную</button>
-      <button class="reset" onclick="resetStats()">Сброс</button>
+      <button class="reset-btn" onclick="resetVotes()">
+        Сброс (тест)
+      </button>
     </div>
   </div>
 
@@ -171,9 +187,14 @@ function goHome() {
   location.href = 'index.html';
 }
 
-async function resetStats() {
-  await fetch(`/api/reset?question=${q}`);
-  loadData();
+async function resetVotes() {
+  if (!confirm('Сбросить все голоса для этого вопроса?')) return;
+
+  await fetch(`/api/reset?q=${q}`, {
+    method: 'POST'
+  });
+
+  await loadData(); // сразу обновляем диаграмму
 }
 
 loadData();
