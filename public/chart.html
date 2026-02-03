@@ -256,7 +256,10 @@ function createEmptyChart() {
     }
   });
 }
-
+document.body.insertAdjacentHTML(
+  'afterbegin',
+  '<h1 style="color:red">JS РАБОТАЕТ</h1>'
+);
 createEmptyChart();
 
 async function fetchStats() {
