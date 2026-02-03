@@ -40,39 +40,28 @@
       justify-content: center;
     }
 
-    button {
-      padding: 14px 20px;
+    /* === BUTTONS === */
+    .btn {
+      padding: 14px 22px;
       font-size: 16px;
       border-radius: 8px;
       border: none;
       cursor: pointer;
       color: white;
+      min-width: 160px;
+      height: 48px;
     }
 
-    .back {
+    .btn:hover {
+      opacity: 0.9;
+    }
+
+    .btn-back {
       background: #ef4444;
     }
 
-    .reset {
+    .btn-reset {
       background: #111827;
-    }
-    .reset-btn {
-      margin-top: 10px;
-      padding: 14px 20px;
-      font-size: 16px;
-      border-radius: 8px;
-      border: none;
-      cursor: pointer;
-      background: #111827;
-      color: white;
-    }
-    
-    .reset-btn:hover {
-      background: #000;
-    }
-
-    button:hover {
-      opacity: 0.9;
     }
   </style>
 </head>
@@ -85,10 +74,8 @@
     </div>
 
     <div class="controls">
-      <button class="back" onclick="goHome()">← На главную</button>
-      <button class="reset-btn" onclick="resetVotes()">
-        Сброс (тест)
-      </button>
+      <button class="btn btn-back" onclick="goHome()">← На главную</button>
+      <button class="btn btn-reset" onclick="resetVotes()">Сброс</button>
     </div>
   </div>
 
@@ -130,76 +117,68 @@ const QUESTIONS = {
   ]
 };
 
-/* ===== ПАРАМЕТР ===== */
-const params = new URLSearchParams(window.location.search);
-const q = params.get('q');
-
-/* НЕ РЕДИРЕКТИМ — ПРОСТО НЕ РИСУЕМ */
+/* ===== PARAM ===== */
+const q = new URLSearchParams(window.location.search).get('q');
 if (!q || !QUESTIONS[q]) {
   document.getElementById('legend').innerHTML = 'Нет данных';
 }
 
-/* ===== CHART ===== */
-let chart;
+/* ===== CHART INIT ===== */
+const ctx = document.getElementById('chart');
 const colors = ['#ff6384', '#36a2eb', '#ffcd56', '#4bc0c0', '#9966ff'];
 
-async function loadData() {
-  if (!QUESTIONS[q]) return;
+const labels = QUESTIONS[q].map(i => i.label);
+const ids = QUESTIONS[q].map(i => i.id);
 
-  const res = await fetch(`/api/stats?q=${q}`, {
-    cache: 'no-store'
-  });
+const chart = new Chart(ctx, {
+  type: 'pie',
+  data: {
+    labels,
+    datasets: [{
+      data: new Array(ids.length).fill(0),
+      backgroundColor: colors
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: { display: false } }
+  }
+});
+
+/* ===== UPDATE DATA (NO DESTROY) ===== */
+async function loadData() {
+  const res = await fetch(`/api/stats?q=${q}`, { cache: 'no-store' });
   const data = await res.json();
 
-  const labels = [];
-  const values = [];
+  const values = ids.map(id => data[id] || 0);
+  chart.data.datasets[0].data = values;
+  chart.update();
 
-  QUESTIONS[q].forEach(item => {
-    labels.push(item.label);
-    values.push(data[item.id] || 0);
-  });
-
-  const total = values.reduce((a, b) => a + b, 0) || 1;
-
-  if (chart) chart.destroy();
-
-  chart = new Chart(document.getElementById('chart'), {
-    type: 'pie',
-    data: {
-      labels,
-      datasets: [{
-        data: values,
-        backgroundColor: colors
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: { legend: { display: false } }
-    }
-  });
-
-  document.getElementById('legend').innerHTML = labels.map((l, i) => {
-    const percent = ((values[i] / total) * 100).toFixed(1);
-    return `<div><span style="color:${colors[i]}">■</span> ${l}: ${percent}%</div>`;
-  }).join('');
+  const total = values.reduce((a,b)=>a+b,0) || 1;
+  document.getElementById('legend').innerHTML = labels.map((l,i)=>`
+    <div>
+      <span style="color:${colors[i]}">■</span>
+      ${l}: ${((values[i]/total)*100).toFixed(1)}%
+    </div>
+  `).join('');
 }
 
+/* ===== NAV ===== */
 function goHome() {
   location.href = 'index.html';
 }
 
+/* ===== RESET ===== */
 async function resetVotes() {
   if (!confirm('Сбросить все голоса для этого вопроса?')) return;
-
-  await fetch(`/api/reset?q=${q}`, {
-    method: 'POST'
-  });
-
-  await loadData(); // сразу обновляем диаграмму
+  await fetch(`/api/reset?q=${q}`, { method: 'POST' });
+  await loadData();
 }
 
+/* ===== LIVE UPDATE ===== */
 loadData();
+setInterval(loadData, 1000); // ✅ стабильный live-режим
 </script>
 
 </body>
