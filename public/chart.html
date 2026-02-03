@@ -146,7 +146,9 @@ const colors = ['#ff6384', '#36a2eb', '#ffcd56', '#4bc0c0', '#9966ff'];
 async function loadData() {
   if (!QUESTIONS[q]) return;
 
-  const res = await fetch(`/api/stats?q=${q}`);
+  const res = await fetch(`/api/stats?q=${q}`, {
+    cache: 'no-store'
+  });
   const data = await res.json();
 
   const labels = [];
@@ -198,7 +200,6 @@ async function resetVotes() {
 }
 
 loadData();
-setInterval(loadData, 200);
 </script>
 
 </body>
