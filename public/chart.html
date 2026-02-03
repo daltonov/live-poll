@@ -60,71 +60,69 @@
 </div>
 
 <script>
-const ANSWERS_MAP = {
-  q2: {
-    "9008969287733378": "VR-психолог",
-    "1770033037788": "Киберспортсмен",
-    "1770033025599": "Системный администратор",
-    "1770033059616": "Маркетолог"
-  }
+/**
+ * 🔒 ЖЁСТКО ЗАДАННЫЙ ПОРЯДОК
+ * КЛЮЧИ НИКОГДА НЕ МЕНЯЮТСЯ
+ */
+const QUESTIONS = {
+  q2: [
+    { id: "9008969287733378", label: "VR-психолог" },
+    { id: "1770033037788", label: "Киберспортсмен" },
+    { id: "1770033025599", label: "Системный администратор" },
+    { id: "1770033059616", label: "Маркетолог" }
+  ]
 };
 
-const COLORS = [
-  '#ff6384',
-  '#36a2eb',
-  '#ffcd56',
-  '#4bc0c0',
-  '#9966ff'
-];
+const COLORS = ['#ff6384', '#36a2eb', '#ffcd56', '#4bc0c0'];
 
 const params = new URLSearchParams(location.search);
 const question = params.get('q');
-if (!question) location.href = 'index.html';
+if (!QUESTIONS[question]) location.href = 'index.html';
+
+const config = QUESTIONS[question];
+const labels = config.map(a => a.label);
+const ids = config.map(a => a.id);
 
 const ctx = document.getElementById('chart');
-let chart;
-
-// фиксированный порядок
-const answerKeys = Object.keys(ANSWERS_MAP[question]);
-const labels = answerKeys.map(k => ANSWERS_MAP[question][k]);
-
-chart = new Chart(ctx, {
+const chart = new Chart(ctx, {
   type: 'pie',
   data: {
     labels,
     datasets: [{
-      data: new Array(answerKeys.length).fill(0),
+      data: new Array(ids.length).fill(0),
       backgroundColor: COLORS
     }]
   },
   options: {
     responsive: true,
     maintainAspectRatio: false,
+    animation: false,
     plugins: {
       legend: { display: false }
     }
   }
 });
 
-async function updateData() {
+async function update() {
   const res = await fetch(`/api/stats?q=${question}`);
-  const data = await res.json();
+  const stats = await res.json();
 
-  const values = answerKeys.map(k => data[k] || 0);
+  const values = ids.map(id => Number(stats[id] || 0));
   chart.data.datasets[0].data = values;
-  chart.update();
+  chart.update('none');
 
   const total = values.reduce((a,b)=>a+b,0) || 1;
-  document.getElementById('legend').innerHTML = labels.map((l,i)=>`
-    <div>
-      <span style="color:${COLORS[i]}">■</span>
-      ${l}: ${((values[i]/total)*100).toFixed(1)}%
-    </div>
-  `).join('');
+  document.getElementById('legend').innerHTML =
+    labels.map((l,i)=>`
+      <div>
+        <span style="color:${COLORS[i]}">■</span>
+        ${l}: ${((values[i]/total)*100).toFixed(1)}%
+      </div>
+    `).join('');
 }
 
-updateData();
-setInterval(updateData, 1000); // 🔥 1 сек — идеально
+update();
+setInterval(update, 1000); // ✅ плавно и стабильно
 </script>
 
 </body>
